@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Blomigenkänning</title>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.16.0"></script>
+
+<style>
+body{
+    font-family: Arial, sans-serif;
+    text-align:center;
+    background:#f5f7fb;
+    margin:40px;
+}
+
+h1{
+    font-size:38px;
+}
+
+.creator{
+    font-size:20px;
+    font-weight:bold;
+    margin-bottom:30px;
+}
+
+#statusBox{
+    display:inline-block;
+    padding:15px 25px;
+    border-radius:10px;
+    background:#e3e3e3;
+    margin-bottom:25px;
+    font-weight:bold;
+}
+
+#preview{
+    margin-top:20px;
+    max-width:300px;
+    border-radius:10px;
+}
+
+#result{
+    margin-top:25px;
+    font-size:22px;
+    font-weight:bold;
+}
+
+.uploadBox{
+    margin-top:20px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Blomigenkänning 🌸</h1>
+<div class="creator">Simon H — TE23C</div>
+
+<div id="statusBox">⏳ Laddar modell...</div>
+
+<div class="uploadBox">
+<input type="file" id="imageUpload" accept="image/*">
+</div>
+
+<br>
+
+<img id="preview">
+
+<div id="result"></div>
+
+<script>
+
+let model;
+const statusBox = document.getElementById("statusBox");
+
+/* KLASSNAMN
+Ändra dessa om din modell har andra blomarter
+*/
+const classes = [
+"Maskros",
+"Prästkrage",
+"Ros",
+"Solros",
+"Tulpan"
+];
+
+
+async function loadModel(){
+
+try{
+
+model = await tf.loadLayersModel("tfjs_model/model.json");
+
+statusBox.innerHTML = "✅ Modell laddad och redo";
+
+}
+catch(err){
+
+statusBox.innerHTML = "❌ Kunde inte ladda modellen";
+console.error(err);
+
+}
+
+}
+
+loadModel();
+
+
+document.getElementById("imageUpload").addEventListener("change", async function(event){
+
+const file = event.target.files[0];
+if(!file || !model) return;
+
+const img = document.getElementById("preview");
+img.src = URL.createObjectURL(file);
+
+img.onload = async () => {
+
+const tensor = tf.browser.fromPixels(img)
+.resizeNearestNeighbor([224,224])
+.toFloat()
+.div(255.0)
+.expandDims();
+
+const prediction = model.predict(tensor);
+const data = await prediction.data();
+
+let highest = 0;
+let index = 0;
+
+for(let i=0;i<data.length;i++){
+if(data[i] > highest){
+highest = data[i];
+index = i;
+}
+}
+
+const probability = (highest * 100).toFixed(2);
+
+document.getElementById("result").innerHTML =
+"🌼 Blomart: <b>" + classes[index] + "</b><br>" +
+"Sannolikhet: " + probability + "%";
+
+};
+
+});
+
+</script>
+
+</body>
+</html>
