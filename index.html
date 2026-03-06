@@ -3,63 +3,67 @@
 <head>
 <meta charset="UTF-8">
 <title>Blomigenkänning</title>
+
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.16.0"></script>
 
 <style>
+
 body{
-    font-family: Arial, sans-serif;
-    text-align:center;
-    background:#f5f7fb;
-    margin:40px;
+font-family: Arial;
+background:#f2f4f8;
+text-align:center;
+padding:40px;
 }
 
 h1{
-    font-size:38px;
+font-size:40px;
+margin-bottom:5px;
 }
 
-.creator{
-    font-size:20px;
-    font-weight:bold;
-    margin-bottom:30px;
+.author{
+font-size:20px;
+font-weight:bold;
+margin-bottom:30px;
 }
 
-#statusBox{
-    display:inline-block;
-    padding:15px 25px;
-    border-radius:10px;
-    background:#e3e3e3;
-    margin-bottom:25px;
-    font-weight:bold;
+#status{
+display:inline-block;
+padding:12px 20px;
+border-radius:8px;
+background:#e0e0e0;
+margin-bottom:25px;
+font-weight:bold;
 }
 
-#preview{
-    margin-top:20px;
-    max-width:300px;
-    border-radius:10px;
+input{
+margin-top:20px;
+}
+
+img{
+margin-top:25px;
+max-width:300px;
+border-radius:10px;
 }
 
 #result{
-    margin-top:25px;
-    font-size:22px;
-    font-weight:bold;
+margin-top:25px;
+font-size:24px;
+font-weight:bold;
 }
 
-.uploadBox{
-    margin-top:20px;
-}
 </style>
 </head>
 
 <body>
 
-<h1>Blomigenkänning 🌸</h1>
-<div class="creator">Simon H — TE23C</div>
+<h1>🌸 Blomigenkänning</h1>
+<div class="author">Simon H — TE23C</div>
 
-<div id="statusBox">⏳ Laddar modell...</div>
+<div id="status">⏳ Laddar modell...</div>
 
-<div class="uploadBox">
-<input type="file" id="imageUpload" accept="image/*">
-</div>
+<br>
+
+<input type="file" id="imageInput" accept="image/*">
 
 <br>
 
@@ -70,12 +74,12 @@ h1{
 <script>
 
 let model;
-const statusBox = document.getElementById("statusBox");
 
-/* KLASSNAMN
-Ändra dessa om din modell har andra blomarter
-*/
-const classes = [
+const statusBox = document.getElementById("status");
+const preview = document.getElementById("preview");
+const result = document.getElementById("result");
+
+const classNames = [
 "Maskros",
 "Prästkrage",
 "Ros",
@@ -90,13 +94,12 @@ try{
 
 model = await tf.loadLayersModel("tfjs_model/model.json");
 
-statusBox.innerHTML = "✅ Modell laddad och redo";
+statusBox.innerHTML = "✅ Modell laddad";
 
-}
-catch(err){
+}catch(error){
 
-statusBox.innerHTML = "❌ Kunde inte ladda modellen";
-console.error(err);
+statusBox.innerHTML = "❌ Fel vid laddning av modell";
+console.error(error);
 
 }
 
@@ -105,40 +108,53 @@ console.error(err);
 loadModel();
 
 
-document.getElementById("imageUpload").addEventListener("change", async function(event){
+document.getElementById("imageInput").addEventListener("change", async function(event){
+
+if(!model){
+alert("Modellen är inte laddad ännu");
+return;
+}
 
 const file = event.target.files[0];
-if(!file || !model) return;
+preview.src = URL.createObjectURL(file);
 
-const img = document.getElementById("preview");
-img.src = URL.createObjectURL(file);
+preview.onload = async () => {
 
-img.onload = async () => {
+const tensor = tf.tidy(() => {
 
-const tensor = tf.browser.fromPixels(img)
-.resizeNearestNeighbor([224,224])
+return tf.browser.fromPixels(preview)
+.resizeBilinear([224,224])
 .toFloat()
-.div(255.0)
-.expandDims();
+.div(255)
+.expandDims(0);
 
-const prediction = model.predict(tensor);
+});
+
+
+let prediction = model.predict(tensor);
+
+/* KONVERTERA LOGITS → SANNOLIKHETER */
+prediction = tf.softmax(prediction);
+
 const data = await prediction.data();
 
-let highest = 0;
+let maxProb = 0;
 let index = 0;
 
 for(let i=0;i<data.length;i++){
-if(data[i] > highest){
-highest = data[i];
+
+if(data[i] > maxProb){
+maxProb = data[i];
 index = i;
 }
+
 }
 
-const probability = (highest * 100).toFixed(2);
+const percent = (maxProb * 100).toFixed(2);
 
-document.getElementById("result").innerHTML =
-"🌼 Blomart: <b>" + classes[index] + "</b><br>" +
-"Sannolikhet: " + probability + "%";
+result.innerHTML =
+"🌼 Blomart: " + classNames[index] +
+"<br>Sannolikhet: " + percent + "%";
 
 };
 
